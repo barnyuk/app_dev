@@ -12,6 +12,7 @@ from docx.text.paragraph import Paragraph
 
 from config.settings import SITPLANES_DIR, OUTPUT_DIR, template_foldet_path
 
+
 logger = logging.getLogger(__name__)
 
 KEY_WORK_TABLE = '{{ТАБЛИЦА}}'
@@ -23,6 +24,16 @@ SPECIAL_KEYS = (KEY_WORK_TABLE, KEY_FINAL_TABLE, KEY_PLAN)
 WORK_OUTPUT_DIR = OUTPUT_DIR / 'work'
 FINAL_OUTPUT_DIR = OUTPUT_DIR / 'final_protocol'
 INDOR_AZIMUTHES = ['0', '360']
+MAKE_WORK_PROTOCOLS, MAKE_FINAL_PROTOCOLS = True, True
+objects_list = []
+
+
+def get_params(work_par, word_par):
+    global MAKE_WORK_PROTOCOLS, MAKE_FINAL_PROTOCOLS 
+    MAKE_WORK_PROTOCOLS, MAKE_FINAL_PROTOCOLS = work_par, word_par
+
+
+
 
 def generate_protocols(obj, sitplan_dir=None, output_dir=None) -> None:
     """Generate both work and final protocol documents for a base station."""
@@ -64,12 +75,17 @@ def generate_protocols(obj, sitplan_dir=None, output_dir=None) -> None:
         work_dir = output_dir / 'work'
         final_dir = output_dir / 'final_protocol'
 
-    _render_document(obj, data_to_fill, work_template, work_dir)
-    _render_document(
+
+    if MAKE_WORK_PROTOCOLS:
+        _render_document(obj, data_to_fill, work_template, work_dir)
+    if MAKE_FINAL_PROTOCOLS:
+        _render_document(
         obj, data_to_fill, word_template, final_dir,
         col_widths=[Cm(5), Cm(2.5), Cm(2.75), Cm(2.5), Cm(1.7), Cm(2.73)],
         table_index=2,
-    )
+        )
+        objects_list.append(obj) 
+        
 
 
 def _render_document(obj, data, template, output_folder,
@@ -106,6 +122,8 @@ def _render_document(obj, data, template, output_folder,
 
     output_folder.mkdir(parents=True, exist_ok=True)
     document.save(output_folder / f'05-{obj.protocol_number}_{obj.operator}_{data["{{НОМЕРБС}}"]}.docx')
+
+
 
 
 def _replace_in_paragraph(paragraph, key, value) -> None:

@@ -5,13 +5,17 @@ import tkinter as tk
 from pathlib import Path
 from tkinter import filedialog, messagebox, scrolledtext, ttk
 
+from src.generators.docx_generator import get_params
 from config.settings import SITPLANES_DIR, OUTPUT_DIR, root_path
 from src.authization.authorize import get_token, user_data
 from src.core.data_merger import process_job
+from src.dto.protocol_dto import ProtocolInfo
+from src.generators.excel import make_excel
 
 OPERATORS = ('A1', 'BEST', 'BE_CLOUD')
-
 icon_path = root_path / 'icons' /'icon.ico'
+MAKE_WORK_PROTOCOLS, MAKE_FINAL_PROTOCOLS = True, True
+
 
 class AuthorizeDialog(tk.Tk):
     def __init__(self):
@@ -144,7 +148,7 @@ class ProtocolApp(tk.Tk):
         self.run_button = ttk.Button(
             self, text='Сформировать протоколы', command=self.on_run)
         self.run_button.grid(
-            row=proto_row + 3, column=0, columnspan=3, pady=10)
+            row=proto_row + 3, column=0, columnspan=1, pady=10)
 
         # Прогресс
         self.progress = ttk.Progressbar(self, mode='determinate')
@@ -159,6 +163,15 @@ class ProtocolApp(tk.Tk):
             row=proto_row + 5, column=0, columnspan=3, padx=10, pady=8)
 
         self.entries[OPERATORS[0]].focus_set()
+        self.MAKE_WORK_PROTOCOLS = tk.BooleanVar(value=True)
+        self.MAKE_WORK_PROTOCOLS_BTN = tk.Checkbutton(
+            self,text="Рабочие",variable=self.MAKE_WORK_PROTOCOLS,onvalue=True
+        ).grid(row=proto_row + 3, column=0, columnspan=2, padx=2, pady=1)
+        self.MAKE_FINAL_PROTOCOLS = tk.BooleanVar(value=True)
+        self.MAKE_FINAL_PROTOCOLS_BTN = tk.Checkbutton(
+            self,text="Чистовые",variable=self.MAKE_FINAL_PROTOCOLS,onvalue=True
+        ).grid(row=proto_row + 3, column=1, columnspan=1, padx=2, pady=1)
+
 
     def _browse_sitplan(self):
         """Open folder dialog for selecting the sitpalnes directory."""
@@ -193,6 +206,7 @@ class ProtocolApp(tk.Tk):
 
     def on_run(self):
         try:
+            get_params(self.MAKE_WORK_PROTOCOLS.get(), self.MAKE_FINAL_PROTOCOLS.get())
             jobs = [(op, bsn)
                     for op, entry in self.entries.items()
                     for bsn in self.parse_bsns(entry.get())]
@@ -263,6 +277,7 @@ class ProtocolApp(tk.Tk):
                 self._log(
                     f'OK  {op} / БС {bsn} — протокол № {protocol_number} '
                     f'сформирован')
+                make_excel(ProtocolInfo.instances)
             except Exception as e:
                 self._log(f'ERR {op} / БС {bsn} — {e}')
             self.after(0, lambda v=i: self.progress.configure(value=v))

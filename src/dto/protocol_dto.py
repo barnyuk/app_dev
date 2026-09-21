@@ -2,6 +2,7 @@
 
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
+from typing import ClassVar
 
 from src.generators.docx_generator import generate_protocols
 
@@ -20,6 +21,8 @@ OPERATOR_INFO = {
 
 @dataclass
 class ProtocolInfo:
+    instances: ClassVar[list['ProtocolInfo']] = []
+
     operator: str
     bsn_id: str
     bsn_address: str
@@ -40,6 +43,7 @@ class ProtocolInfo:
         self.frequences = sorted({int(key) for key in self.permissions})
         azimuths = {int(az) for values in self.permissions.values() for az in values}
         self.azimuthes = [str(az) for az in sorted(azimuths)]
+        self.instances.append(self)
 
     def show_frequences(self) -> str:
         """Return frequencies as a human-readable string, e.g. '1, 2 и 3'."""
