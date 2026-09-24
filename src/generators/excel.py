@@ -1,9 +1,10 @@
 from openpyxl import Workbook
 from config.settings import root_path
+from src.dto.protocol_dto import ProtocolInfo
 
 data = {
     'BE_CLOUD':'ООО «Белорусские облачные технологии»',
-    'A1':'Унитарное предприятие А1',
+    'A1':'Унитарное предприятие "А1"',
     'BEST':'ЗАО БеСТ'
 }
 
@@ -23,5 +24,6 @@ def make_excel(obj_list:list) -> None:
         ws[f'P{i}'].value = 'Город' if obj.city_minsk else 'Область'
         ws[f'Q{i}'].value = f'{obj.bsn_id}, {obj.bsn_address}'
 
-    wb.save(root_path / 'result.xlsx')
+    wb.save(root_path / 'result.xlsx')  
+
 

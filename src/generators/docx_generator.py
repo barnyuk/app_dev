@@ -9,8 +9,9 @@ from docx.oxml import OxmlElement
 from docx.oxml.ns import qn
 from docx.shared import Cm, Inches, Pt
 from docx.text.paragraph import Paragraph
-
-from config.settings import SITPLANES_DIR, OUTPUT_DIR, template_foldet_path
+import os
+from copy import deepcopy
+from config.settings import SITPLANES_DIR, OUTPUT_DIR, template_foldet_path, prev_prot_path
 
 
 logger = logging.getLogger(__name__)
@@ -31,8 +32,6 @@ objects_list = []
 def get_params(work_par, word_par):
     global MAKE_WORK_PROTOCOLS, MAKE_FINAL_PROTOCOLS 
     MAKE_WORK_PROTOCOLS, MAKE_FINAL_PROTOCOLS = work_par, word_par
-
-
 
 
 def generate_protocols(obj, sitplan_dir=None, output_dir=None) -> None:
@@ -75,9 +74,8 @@ def generate_protocols(obj, sitplan_dir=None, output_dir=None) -> None:
         work_dir = output_dir / 'work'
         final_dir = output_dir / 'final_protocol'
 
-
     if MAKE_WORK_PROTOCOLS:
-        _render_document(obj, data_to_fill, work_template, work_dir)
+        _render_document(obj, data_to_fill, work_template, work_dir, work=True)
     if MAKE_FINAL_PROTOCOLS:
         _render_document(
         obj, data_to_fill, word_template, final_dir,
@@ -85,11 +83,20 @@ def generate_protocols(obj, sitplan_dir=None, output_dir=None) -> None:
         table_index=2,
         )
         objects_list.append(obj) 
+
+def find_prev_data(bsn_id: str) -> docx.Document.table:
+    for protocol in os.listdir(prev_prot_path):
+
+        if bsn_id in protocol:
+            table = docx.Document(prev_prot_path / protocol).tables[-1]
+
+            return deepcopy(table._tbl)
+
         
 
 
 def _render_document(obj, data, template, output_folder,
-                     col_widths=None, table_index=None) -> None:
+                     col_widths=None, table_index=None, work=False) -> None:
     """Render a protocol document: substitute data, tables and site plan."""
     document = docx.Document(str(template))
     simple_keys = {k: v for k, v in data.items() if k not in SPECIAL_KEYS}
@@ -110,7 +117,6 @@ def _render_document(obj, data, template, output_folder,
             if k in text:
                 _replace_in_paragraph(paragraph, k, str(v))
 
-    # Replace simple placeholders in headers and footers
     _replace_in_header_footers(document, simple_keys)
 
     if col_widths is not None and table_index is not None:
@@ -120,8 +126,15 @@ def _render_document(obj, data, template, output_folder,
             for idx, w in enumerate(col_widths):
                 row.cells[idx].width = w
 
+    if work:
+        try:
+            document._body._element.append(find_prev_data(obj.bsn_id))
+        except Exception:
+            logger.warning('Не удалось вставить таблицу (%s)',obj.bsn_id)
+
+
     output_folder.mkdir(parents=True, exist_ok=True)
-    document.save(output_folder / f'05-{obj.protocol_number}_{obj.operator}_{data["{{НОМЕРБС}}"]}.docx')
+    document.save(output_folder / f'05-{obj.protocol_number}_{data["{{НОМЕРБС}}"]}_{obj.operator}.docx')
 
 
 

@@ -84,7 +84,6 @@ class ProtocolApp(tk.Tk):
         self.sitplan_dir = Path(SITPLANES_DIR)
         self.output_dir = Path(OUTPUT_DIR)
 
-        # Поле выбора папки sitpalnes
         ttk.Label(self, text='Папка ситпланов:').grid(
             row=0, column=0, sticky='w', padx=10, pady=6)
         self.sitplan_entry = ttk.Entry(self, width=55)
@@ -95,7 +94,7 @@ class ProtocolApp(tk.Tk):
             command=self._browse_sitplan)
         self.sitplan_browse.grid(row=0, column=2, padx=10, pady=6)
 
-        # Поле выбора папки для сохранения документов
+
         ttk.Label(self, text='Папка для сохранения документов:').grid(
             row=1, column=0, sticky='w', padx=10, pady=6)
         self.output_entry = ttk.Entry(self, width=55)
@@ -106,7 +105,7 @@ class ProtocolApp(tk.Tk):
             command=self._browse_output)
         self.output_browse.grid(row=1, column=2, padx=10, pady=6)
 
-        # --- Поля ввода номеров БС ---
+
         self.entries = {}
         for i, op in enumerate(OPERATORS):
             row = i + 2
@@ -126,10 +125,6 @@ class ProtocolApp(tk.Tk):
             row=proto_row, column=1, sticky='we', padx=10, pady=6)
         self.protocol_number_entry.insert(0, '1')
 
-        # --- Поля дат (необязательные) ---
-        # Дата протокола подставляется в шаблон по ключу {{ДАТАВОРД}},
-        # дата испытаний — по ключу {{ДАТА}}. Если поле пустое,
-        # используются значения по умолчанию (как и раньше).
         date_row = proto_row + 1
         ttk.Label(self, text='Дата протокола (ДД.ММ.ГГГГ):').grid(
             row=date_row, column=0, sticky='w', padx=10, pady=6)
@@ -138,39 +133,52 @@ class ProtocolApp(tk.Tk):
             row=date_row, column=1, sticky='we', padx=10, pady=6)
 
         test_date_row = proto_row + 2
-        ttk.Label(self, text='Дата испытаний (ДД.ММ.ГГГГ):').grid(
+        ttk.Label(self, text='Дата измерений (ДД.ММ.ГГГГ):').grid(
             row=test_date_row, column=0, sticky='w', padx=10, pady=6)
         self.test_date_entry = ttk.Entry(self, width=55)
         self.test_date_entry.grid(
             row=test_date_row, column=1, sticky='we', padx=10, pady=6)
 
+        ttk.Label(self, text='Температура, ° С').grid(
+                    row=proto_row + 4, column=0, sticky='w', padx=10, pady=6)
+        self.temperature = ttk.Entry(width=10)
+        self.temperature.grid(row=proto_row + 4, column=1, sticky='we', padx=10, pady=6)
+
+        ttk.Label(self, text='Влажность, %').grid(
+                            row=proto_row+3, column=0, sticky='w', padx=10, pady=6)
+        self.temperature = ttk.Entry(width=10)
+        self.temperature.grid(row=proto_row+3, column=1, sticky='we', padx=10, pady=6)
+        
+
         # Кнопка запуска
         self.run_button = ttk.Button(
             self, text='Сформировать протоколы', command=self.on_run)
         self.run_button.grid(
-            row=proto_row + 3, column=0, columnspan=1, pady=10)
+            row=proto_row + 5, column=0, columnspan=1, pady=10)
+
+        self.MAKE_WORK_PROTOCOLS = tk.BooleanVar(value=True)
+        self.MAKE_WORK_PROTOCOLS_BTN = tk.Checkbutton(
+            self,text="Рабочие",variable=self.MAKE_WORK_PROTOCOLS,onvalue=True
+                ).grid(row=proto_row + 5, column=0, columnspan=2, padx=2, pady=1)
+        self.MAKE_FINAL_PROTOCOLS = tk.BooleanVar(value=True)
+        self.MAKE_FINAL_PROTOCOLS_BTN = tk.Checkbutton(
+                    self,text="Чистовые",variable=self.MAKE_FINAL_PROTOCOLS,onvalue=True
+                ).grid(row=proto_row + 5, column=1, columnspan=1, padx=2, pady=1)
 
         # Прогресс
         self.progress = ttk.Progressbar(self, mode='determinate')
         self.progress.grid(
-            row=proto_row + 4, column=0, columnspan=3,
+            row=proto_row + 6, column=0, columnspan=3,
             sticky='we', padx=10)
 
         # Журнал
         self.log = scrolledtext.ScrolledText(
             self, width=75, height=14, state='disabled')
         self.log.grid(
-            row=proto_row + 5, column=0, columnspan=3, padx=10, pady=8)
+            row=proto_row + 7, column=0, columnspan=3, padx=10, pady=8)
 
         self.entries[OPERATORS[0]].focus_set()
-        self.MAKE_WORK_PROTOCOLS = tk.BooleanVar(value=True)
-        self.MAKE_WORK_PROTOCOLS_BTN = tk.Checkbutton(
-            self,text="Рабочие",variable=self.MAKE_WORK_PROTOCOLS,onvalue=True
-        ).grid(row=proto_row + 3, column=0, columnspan=2, padx=2, pady=1)
-        self.MAKE_FINAL_PROTOCOLS = tk.BooleanVar(value=True)
-        self.MAKE_FINAL_PROTOCOLS_BTN = tk.Checkbutton(
-            self,text="Чистовые",variable=self.MAKE_FINAL_PROTOCOLS,onvalue=True
-        ).grid(row=proto_row + 3, column=1, columnspan=1, padx=2, pady=1)
+        
 
 
     def _browse_sitplan(self):
@@ -205,6 +213,8 @@ class ProtocolApp(tk.Tk):
         return numbers
 
     def on_run(self):
+        ProtocolInfo.instances.clear()
+
         try:
             get_params(self.MAKE_WORK_PROTOCOLS.get(), self.MAKE_FINAL_PROTOCOLS.get())
             jobs = [(op, bsn)
@@ -280,7 +290,10 @@ class ProtocolApp(tk.Tk):
                 make_excel(ProtocolInfo.instances)
             except Exception as e:
                 self._log(f'ERR {op} / БС {bsn} — {e}')
+            
             self.after(0, lambda v=i: self.progress.configure(value=v))
+        ProtocolInfo.instances.clear()
+
         self.after(0, self._finish)
 
     def _finish(self):

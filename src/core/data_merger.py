@@ -4,7 +4,6 @@ import logging
 
 from src.data_sources.parser_rep import get_data_from_maps
 from src.dto.protocol_dto import ProtocolInfo
-from src.generators.excel import make_excel
 
 logger = logging.getLogger(__name__)
 
