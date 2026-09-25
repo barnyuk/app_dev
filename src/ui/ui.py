@@ -5,8 +5,8 @@ import tkinter as tk
 from pathlib import Path
 from tkinter import filedialog, messagebox, scrolledtext, ttk
 
-from src.generators.docx_generator import get_params
-from config.settings import SITPLANES_DIR, OUTPUT_DIR, root_path
+from src.generators.docx_generator import get_params, get_temperature_and_wet
+from config.settings import SITPLANES_DIR, OUTPUT_DIR, root_path, prev_prot_path
 from src.authization.authorize import get_token, user_data
 from src.core.data_merger import process_job
 from src.dto.protocol_dto import ProtocolInfo
@@ -83,6 +83,7 @@ class ProtocolApp(tk.Tk):
         # --- Пути к папкам ---
         self.sitplan_dir = Path(SITPLANES_DIR)
         self.output_dir = Path(OUTPUT_DIR)
+        self.prev_prot_dir = Path(prev_prot_path)
 
         ttk.Label(self, text='Папка ситпланов:').grid(
             row=0, column=0, sticky='w', padx=10, pady=6)
@@ -105,10 +106,21 @@ class ProtocolApp(tk.Tk):
             command=self._browse_output)
         self.output_browse.grid(row=1, column=2, padx=10, pady=6)
 
-
+        ttk.Label(self, text='Папка с предыдущими протоколами:').grid(
+            row=2, column=0, sticky='w', padx=10, pady=6
+        )
+        self.prev_prot_dir_entry = ttk.Entry(self, width=55)
+        self.prev_prot_dir_entry.grid(row=2, column=1, sticky='we', padx=10, pady=6)
+        self.prev_prot_dir_entry.insert(0, str(prev_prot_path))
+        self.prev_prot_dir_browse = ttk.Button(
+            self, text='Обзор...',
+            command=self._browse_prev
+        )
+        self.prev_prot_dir_browse.grid(row=2, column=2, padx=10, pady=6)
+        
         self.entries = {}
         for i, op in enumerate(OPERATORS):
-            row = i + 2
+            row = i + 3
             ttk.Label(self, text=f'БС оператора {op}:').grid(
                 row=row, column=0, sticky='w', padx=10, pady=6)
             entry = ttk.Entry(self, width=55)
@@ -116,69 +128,77 @@ class ProtocolApp(tk.Tk):
             entry.bind('<Return>', lambda _e: self.on_run())
             self.entries[op] = entry
 
-        # --- Поле начального номера протокола ---
         proto_row = len(OPERATORS) + 2
         ttk.Label(self, text='Начальный номер протокола:').grid(
-            row=proto_row, column=0, sticky='w', padx=10, pady=6)
+            row=proto_row+1, column=0, sticky='w', padx=10, pady=6)
         self.protocol_number_entry = ttk.Entry(self, width=55)
         self.protocol_number_entry.grid(
-            row=proto_row, column=1, sticky='we', padx=10, pady=6)
+            row=proto_row+1, column=1, sticky='we', padx=10, pady=6)
         self.protocol_number_entry.insert(0, '1')
 
-        date_row = proto_row + 1
+        date_row = proto_row + 2
         ttk.Label(self, text='Дата протокола (ДД.ММ.ГГГГ):').grid(
             row=date_row, column=0, sticky='w', padx=10, pady=6)
         self.protocol_date_entry = ttk.Entry(self, width=55)
         self.protocol_date_entry.grid(
             row=date_row, column=1, sticky='we', padx=10, pady=6)
 
-        test_date_row = proto_row + 2
+        test_date_row = proto_row + 3
         ttk.Label(self, text='Дата измерений (ДД.ММ.ГГГГ):').grid(
             row=test_date_row, column=0, sticky='w', padx=10, pady=6)
         self.test_date_entry = ttk.Entry(self, width=55)
         self.test_date_entry.grid(
             row=test_date_row, column=1, sticky='we', padx=10, pady=6)
 
-        ttk.Label(self, text='Температура, ° С').grid(
+        ttk.Label(self, text='Температура, °С').grid(
                     row=proto_row + 4, column=0, sticky='w', padx=10, pady=6)
         self.temperature = ttk.Entry(width=10)
         self.temperature.grid(row=proto_row + 4, column=1, sticky='we', padx=10, pady=6)
 
         ttk.Label(self, text='Влажность, %').grid(
-                            row=proto_row+3, column=0, sticky='w', padx=10, pady=6)
-        self.temperature = ttk.Entry(width=10)
-        self.temperature.grid(row=proto_row+3, column=1, sticky='we', padx=10, pady=6)
+                            row=proto_row+5, column=0, sticky='w', padx=10, pady=6)
+        self.wet = ttk.Entry(width=10)
+        self.wet.grid(row=proto_row+5, column=1, sticky='we', padx=10, pady=6)
         
 
         # Кнопка запуска
         self.run_button = ttk.Button(
             self, text='Сформировать протоколы', command=self.on_run)
         self.run_button.grid(
-            row=proto_row + 5, column=0, columnspan=1, pady=10)
+            row=proto_row + 6, column=0, columnspan=1, pady=10)
 
         self.MAKE_WORK_PROTOCOLS = tk.BooleanVar(value=True)
         self.MAKE_WORK_PROTOCOLS_BTN = tk.Checkbutton(
             self,text="Рабочие",variable=self.MAKE_WORK_PROTOCOLS,onvalue=True
-                ).grid(row=proto_row + 5, column=0, columnspan=2, padx=2, pady=1)
+                ).grid(row=proto_row + 6, column=0, columnspan=2, padx=2, pady=1)
         self.MAKE_FINAL_PROTOCOLS = tk.BooleanVar(value=True)
         self.MAKE_FINAL_PROTOCOLS_BTN = tk.Checkbutton(
                     self,text="Чистовые",variable=self.MAKE_FINAL_PROTOCOLS,onvalue=True
-                ).grid(row=proto_row + 5, column=1, columnspan=1, padx=2, pady=1)
+                ).grid(row=proto_row + 6, column=1, columnspan=1, padx=2, pady=1)
 
         # Прогресс
         self.progress = ttk.Progressbar(self, mode='determinate')
         self.progress.grid(
-            row=proto_row + 6, column=0, columnspan=3,
+            row=proto_row + 7, column=0, columnspan=3,
             sticky='we', padx=10)
 
         # Журнал
         self.log = scrolledtext.ScrolledText(
             self, width=75, height=14, state='disabled')
         self.log.grid(
-            row=proto_row + 7, column=0, columnspan=3, padx=10, pady=8)
+            row=proto_row + 8, column=0, columnspan=3, padx=10, pady=8)
 
         self.entries[OPERATORS[0]].focus_set()
-        
+
+    def _browse_prev(self):
+        folder = filedialog.askdirectory(
+            title='Папка со старыми протоколами',
+            initialdir=str(self.prev_prot_dir)
+        )   
+        if folder:
+            self.prev_prot_dir = folder
+            self.prev_prot_dir_entry.delete(0, tk.END)
+            self.prev_prot_dir_entry.insert(0, str(self.prev_prot_dir))
 
 
     def _browse_sitplan(self):
@@ -193,7 +213,7 @@ class ProtocolApp(tk.Tk):
             self.sitplan_entry.insert(0, str(self.sitplan_dir))
 
     def _browse_output(self):
-        """Open folder dialog for selecting the output directory."""
+
         folder = filedialog.askdirectory(
             title='Выберите папку для сохранения документов',
             initialdir=str(self.output_dir),
@@ -217,6 +237,11 @@ class ProtocolApp(tk.Tk):
 
         try:
             get_params(self.MAKE_WORK_PROTOCOLS.get(), self.MAKE_FINAL_PROTOCOLS.get())
+            temperature = self.temperature.get()
+            wet = self.wet.get()
+            prev_prot_dir = self.prev_prot_dir_entry.get()
+
+            
             jobs = [(op, bsn)
                     for op, entry in self.entries.items()
                     for bsn in self.parse_bsns(entry.get())]
@@ -224,6 +249,12 @@ class ProtocolApp(tk.Tk):
             messagebox.showerror('Некорректный ввод', str(e))
             return
 
+        if self.MAKE_FINAL_PROTOCOLS.get() and (not wet or not temperature):
+            messagebox.showinfo('Нет данных', "Введите влажность и температуру")
+            return 
+
+        get_temperature_and_wet(temperature, wet, prev_prot_dir)
+        
         if not jobs:
             messagebox.showinfo('Нет данных', 'Введите хотя бы один номер БС.')
             return

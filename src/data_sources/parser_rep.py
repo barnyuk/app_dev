@@ -40,7 +40,7 @@ def parse_api_response(data_list: list) -> tuple[dict, bool]:
         azimuth, standard, frequency, status = (
             attrs.get(key) for key in ('azimuth', 'standart', 'freq', 'status')
         )
-        if standard is None or frequency is None or azimuth is None:# or status.lower()!=STATUS:
+        if standard is None or frequency is None or azimuth is None or status.lower()!=STATUS:
             continue
         azimuth = float(azimuth)
         numeric_frequency = float(frequency)
